@@ -11,6 +11,7 @@ import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import Imap from 'imap';
 import { simpleParser } from 'mailparser';
+import nodemailer from 'nodemailer';
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -143,6 +144,48 @@ class YahooMailMCPServer {
                                 }
                             },
                             required: []
+                        }
+                    },
+                    {
+                        name: 'send_email',
+                        description: 'Send an email from the configured Yahoo Mail account via SMTP. Supports to/cc/bcc, plain text or HTML body, and a reply-to In-Reply-To header for threading.',
+                        inputSchema: {
+                            type: 'object',
+                            properties: {
+                                to: {
+                                    type: 'array',
+                                    items: { type: 'string' },
+                                    description: 'Recipient email address(es)',
+                                    minItems: 1
+                                },
+                                subject: {
+                                    type: 'string',
+                                    description: 'Email subject'
+                                },
+                                text: {
+                                    type: 'string',
+                                    description: 'Plain text body (provide text and/or html)'
+                                },
+                                html: {
+                                    type: 'string',
+                                    description: 'HTML body (provide text and/or html)'
+                                },
+                                cc: {
+                                    type: 'array',
+                                    items: { type: 'string' },
+                                    description: 'CC recipient email address(es)'
+                                },
+                                bcc: {
+                                    type: 'array',
+                                    items: { type: 'string' },
+                                    description: 'BCC recipient email address(es)'
+                                },
+                                inReplyTo: {
+                                    type: 'string',
+                                    description: 'Message-ID this email is replying to (for threading)'
+                                }
+                            },
+                            required: ['to', 'subject']
                         }
                     },
                     {
@@ -330,6 +373,9 @@ class YahooMailMCPServer {
                             folder: args?.folder || 'INBOX'
                         });
 
+                    case 'send_email':
+                        return await this.sendEmail(args);
+
                     case 'delete_emails':
                         return await this.deleteEmails(args.uids, args.folder);
 
@@ -440,6 +486,102 @@ class YahooMailMCPServer {
 
             imap.connect();
         });
+    }
+
+    /**
+     * Create an SMTP transporter using the same Yahoo app-specific password as IMAP
+     */
+    createSmtpTransport() {
+        if (!process.env.YAHOO_EMAIL || !process.env.YAHOO_APP_PASSWORD) {
+            throw new Error('YAHOO_EMAIL or YAHOO_APP_PASSWORD environment variables are not set');
+        }
+
+        return nodemailer.createTransport({
+            host: 'smtp.mail.yahoo.com',
+            port: 465,
+            secure: true,
+            auth: {
+                user: process.env.YAHOO_EMAIL,
+                pass: process.env.YAHOO_APP_PASSWORD
+            }
+        });
+    }
+
+    /**
+     * Send an email via Yahoo SMTP
+     */
+    async sendEmail(args = {}) {
+        const { to, subject, text, html, cc, bcc, inReplyTo } = args;
+
+        if (!to || (Array.isArray(to) && to.length === 0)) {
+            return {
+                content: [{
+                    type: 'text',
+                    text: 'Error: to is required (recipient email address or array of addresses)'
+                }]
+            };
+        }
+
+        if (!subject) {
+            return {
+                content: [{
+                    type: 'text',
+                    text: 'Error: subject is required'
+                }]
+            };
+        }
+
+        if (!text && !html) {
+            return {
+                content: [{
+                    type: 'text',
+                    text: 'Error: text or html body is required'
+                }]
+            };
+        }
+
+        const transporter = this.createSmtpTransport();
+
+        const mailOptions = {
+            from: process.env.YAHOO_EMAIL,
+            to: Array.isArray(to) ? to.join(', ') : to,
+            subject
+        };
+
+        if (text) mailOptions.text = text;
+        if (html) mailOptions.html = html;
+        if (cc && cc.length) mailOptions.cc = Array.isArray(cc) ? cc.join(', ') : cc;
+        if (bcc && bcc.length) mailOptions.bcc = Array.isArray(bcc) ? bcc.join(', ') : bcc;
+        if (inReplyTo) {
+            mailOptions.inReplyTo = inReplyTo;
+            mailOptions.references = inReplyTo;
+        }
+
+        try {
+            const info = await transporter.sendMail(mailOptions);
+
+            return {
+                content: [{
+                    type: 'text',
+                    text: JSON.stringify({
+                        sent: true,
+                        messageId: info.messageId,
+                        accepted: info.accepted,
+                        rejected: info.rejected,
+                        to: mailOptions.to,
+                        subject
+                    }, null, 2)
+                }]
+            };
+        } catch (error) {
+            let errorMessage = error.message;
+
+            if (errorMessage.includes('Invalid login') || errorMessage.includes('authentication')) {
+                errorMessage = `SMTP authentication failed: ${errorMessage}. Check Yahoo Mail app password. Regenerate at https://login.yahoo.com/account/security`;
+            }
+
+            throw new Error(errorMessage);
+        }
     }
 
     /**
@@ -1676,6 +1818,7 @@ class YahooMailMCPServer {
                     'list_emails',
                     'read_email',
                     'search_emails',
+                    'send_email',
                     'delete_emails',
                     'archive_emails',
                     'mark_as_read',
