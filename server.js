@@ -132,6 +132,11 @@ class YahooMailMCPServer {
                                     description: 'Filter by specific sender email address or name',
                                     default: null
                                 },
+                                recipient: {
+                                    type: 'string',
+                                    description: 'Filter by specific recipient (To) email address or name',
+                                    default: null
+                                },
                                 unreadOnly: {
                                     type: 'boolean',
                                     description: 'Only return unread emails (default: false)',
@@ -369,6 +374,7 @@ class YahooMailMCPServer {
                             dateFrom: args?.dateFrom || null,
                             dateTo: args?.dateTo || null,
                             sender: args?.sender || null,
+                            recipient: args?.recipient || null,
                             unreadOnly: args?.unreadOnly || false,
                             folder: args?.folder || 'INBOX'
                         });
@@ -756,6 +762,7 @@ class YahooMailMCPServer {
             dateFrom = null,
             dateTo = null,
             sender = null,
+            recipient = null,
             unreadOnly = false,
             folder = 'INBOX'
         } = options;
@@ -800,6 +807,11 @@ class YahooMailMCPServer {
                         ['HEADER', 'SUBJECT', query],
                         ['HEADER', 'FROM', query]
                     ]);
+                }
+
+                // Recipient filter
+                if (recipient && recipient.trim().length > 0) {
+                    criteria.push(['HEADER', 'TO', recipient]);
                 }
 
                 // Sender filter
