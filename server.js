@@ -17,7 +17,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 
 // Load environment variables from .env file (for local development)
-dotenv.config();
+dotenv.config({ quiet: true });
 
 class YahooMailMCPServer {
     constructor() {
