@@ -64,7 +64,7 @@ class YahooMailMCPServer {
                             properties: {
                                 count: {
                                     type: 'number',
-                                    description: 'Number of emails to retrieve (default: 10, max: 50)',
+                                    description: 'Number of emails to retrieve (default: 10, max: 200)',
                                     default: 10
                                 },
                                 folder: {
@@ -76,6 +76,11 @@ class YahooMailMCPServer {
                                     type: 'number',
                                     description: 'Number of emails to skip (for pagination, default: 0)',
                                     default: 0
+                                },
+                                account: {
+                                    type: 'number',
+                                    description: 'Account number (1, 2, or 3, default: 1)',
+                                    default: 1
                                 }
                             }
                         }
@@ -96,6 +101,11 @@ class YahooMailMCPServer {
                                     type: 'string',
                                     description: 'Folder containing the emails (default: INBOX)',
                                     default: 'INBOX'
+                                },
+                                account: {
+                                    type: 'number',
+                                    description: 'Account number (1, 2, or 3, default: 1)',
+                                    default: 1
                                 }
                             },
                             required: ['uids']
@@ -114,7 +124,7 @@ class YahooMailMCPServer {
                                 },
                                 count: {
                                     type: 'number',
-                                    description: 'Number of results to return (default: 10, max: 50)',
+                                    description: 'Number of results to return (default: 10, max: 200)',
                                     default: 10
                                 },
                                 dateFrom: {
@@ -146,6 +156,11 @@ class YahooMailMCPServer {
                                     type: 'string',
                                     description: 'Folder to search in (default: INBOX). Use list_folders to see available folders.',
                                     default: 'INBOX'
+                                },
+                                account: {
+                                    type: 'number',
+                                    description: 'Account number (1, 2, or 3, default: 1)',
+                                    default: 1
                                 }
                             },
                             required: []
@@ -209,7 +224,8 @@ class YahooMailMCPServer {
                                     type: 'string',
                                     description: 'Source folder (default: INBOX)',
                                     default: 'INBOX'
-                                }
+                                },
+                                account: { type: 'number', description: 'Account number (1, 2, or 3, default: 1)', default: 1 }
                             },
                             required: ['uids']
                         }
@@ -230,7 +246,8 @@ class YahooMailMCPServer {
                                     type: 'string',
                                     description: 'Source folder (default: INBOX)',
                                     default: 'INBOX'
-                                }
+                                },
+                                account: { type: 'number', description: 'Account number (1, 2, or 3, default: 1)', default: 1 }
                             },
                             required: ['uids']
                         }
@@ -251,7 +268,8 @@ class YahooMailMCPServer {
                                     type: 'string',
                                     description: 'Folder containing emails (default: INBOX)',
                                     default: 'INBOX'
-                                }
+                                },
+                                account: { type: 'number', description: 'Account number (1, 2, or 3, default: 1)', default: 1 }
                             },
                             required: ['uids']
                         }
@@ -272,7 +290,8 @@ class YahooMailMCPServer {
                                     type: 'string',
                                     description: 'Folder containing emails (default: INBOX)',
                                     default: 'INBOX'
-                                }
+                                },
+                                account: { type: 'number', description: 'Account number (1, 2, or 3, default: 1)', default: 1 }
                             },
                             required: ['uids']
                         }
@@ -293,7 +312,8 @@ class YahooMailMCPServer {
                                     type: 'string',
                                     description: 'Folder containing emails (default: INBOX)',
                                     default: 'INBOX'
-                                }
+                                },
+                                account: { type: 'number', description: 'Account number (1, 2, or 3, default: 1)', default: 1 }
                             },
                             required: ['uids']
                         }
@@ -314,7 +334,8 @@ class YahooMailMCPServer {
                                     type: 'string',
                                     description: 'Folder containing emails (default: INBOX)',
                                     default: 'INBOX'
-                                }
+                                },
+                                account: { type: 'number', description: 'Account number (1, 2, or 3, default: 1)', default: 1 }
                             },
                             required: ['uids']
                         }
@@ -339,7 +360,8 @@ class YahooMailMCPServer {
                                     type: 'string',
                                     description: 'Source folder containing the emails (default: INBOX)',
                                     default: 'INBOX'
-                                }
+                                },
+                                account: { type: 'number', description: 'Account number (1, 2, or 3, default: 1)', default: 1 }
                             },
                             required: ['uids', 'folderName']
                         }
@@ -349,7 +371,9 @@ class YahooMailMCPServer {
                         description: 'List all available IMAP folders/mailboxes in your Yahoo Mail account',
                         inputSchema: {
                             type: 'object',
-                            properties: {}
+                            properties: {
+                                account: { type: 'number', description: 'Account number (1, 2, or 3, default: 1)', default: 1 }
+                            }
                         }
                     }
                 ]
@@ -363,10 +387,10 @@ class YahooMailMCPServer {
             try {
                 switch (name) {
                     case 'list_emails':
-                        return await this.listEmails(args?.count || 10, args?.folder || 'INBOX', args?.offset || 0);
+                        return await this.listEmails(args?.count || 10, args?.folder || 'INBOX', args?.offset || 0, args?.account || 1);
 
                     case 'read_email':
-                        return await this.readEmail(args.uids, args.folder);
+                        return await this.readEmail(args.uids, args.folder, args?.account || 1);
 
                     case 'search_emails':
                         return await this.searchEmails(args?.query || '', {
@@ -376,35 +400,36 @@ class YahooMailMCPServer {
                             sender: args?.sender || null,
                             recipient: args?.recipient || null,
                             unreadOnly: args?.unreadOnly || false,
-                            folder: args?.folder || 'INBOX'
+                            folder: args?.folder || 'INBOX',
+                            account: args?.account || 1
                         });
 
                     case 'send_email':
                         return await this.sendEmail(args);
 
                     case 'delete_emails':
-                        return await this.deleteEmails(args.uids, args.folder);
+                        return await this.deleteEmails(args.uids, args.folder, args?.account || 1);
 
                     case 'archive_emails':
-                        return await this.archiveEmails(args.uids, args.folder);
+                        return await this.archiveEmails(args.uids, args.folder, args?.account || 1);
 
                     case 'mark_as_read':
-                        return await this.markAsRead(args.uids, args.folder);
+                        return await this.markAsRead(args.uids, args.folder, args?.account || 1);
 
                     case 'mark_as_unread':
-                        return await this.markAsUnread(args.uids, args.folder);
+                        return await this.markAsUnread(args.uids, args.folder, args?.account || 1);
 
                     case 'flag_emails':
-                        return await this.flagEmails(args.uids, args.folder);
+                        return await this.flagEmails(args.uids, args.folder, args?.account || 1);
 
                     case 'unflag_emails':
-                        return await this.unflagEmails(args.uids, args.folder);
+                        return await this.unflagEmails(args.uids, args.folder, args?.account || 1);
 
                     case 'move_emails':
-                        return await this.moveEmails(args.uids, args.folderName, args.sourceFolder);
+                        return await this.moveEmails(args.uids, args.folderName, args.sourceFolder, args?.account || 1);
 
                     case 'list_folders':
-                        return await this.listFolders();
+                        return await this.listFolders(args?.account || 1);
 
                     default:
                         throw new Error(`Unknown tool: ${name}`);
@@ -423,9 +448,21 @@ class YahooMailMCPServer {
     }
 
     /**
+     * Resolve account credentials by account number (1/2/3)
+     */
+    resolveAccount(accountNum) {
+        const n = Number(accountNum) || 1;
+        if (n === 2 && process.env.YAHOO_EMAIL_2 && process.env.YAHOO_APP_PASSWORD_2)
+            return { email: process.env.YAHOO_EMAIL_2, password: process.env.YAHOO_APP_PASSWORD_2 };
+        if (n === 3 && process.env.YAHOO_EMAIL_3 && process.env.YAHOO_APP_PASSWORD_3)
+            return { email: process.env.YAHOO_EMAIL_3, password: process.env.YAHOO_APP_PASSWORD_3 };
+        return { email: process.env.YAHOO_EMAIL, password: process.env.YAHOO_APP_PASSWORD };
+    }
+
+    /**
      * Create IMAP connection using app-specific password (like the working test script)
      */
-    async createImapConnection() {
+    async createImapConnection(accountNum) {
         return new Promise((resolve, reject) => {
             if (!process.env.YAHOO_EMAIL || !process.env.YAHOO_APP_PASSWORD) {
                 const error = new Error('YAHOO_EMAIL or YAHOO_APP_PASSWORD environment variables are not set');
@@ -434,9 +471,10 @@ class YahooMailMCPServer {
                 return;
             }
 
+            const { email, password } = this.resolveAccount(accountNum);
             const imap = new Imap({
-                user: process.env.YAHOO_EMAIL,
-                password: process.env.YAHOO_APP_PASSWORD,
+                user: email,
+                password: password,
                 host: 'imap.mail.yahoo.com',
                 port: 993,
                 tls: true,
@@ -593,7 +631,7 @@ class YahooMailMCPServer {
     /**
      * List recent emails with enriched metadata
      */
-    async listEmails(count = 10, folder = 'INBOX', offset = 0) {
+    async listEmails(count = 10, folder = 'INBOX', offset = 0, account = 1) {
         // Validate count parameter
         if (count < 1) {
             return {
@@ -604,11 +642,11 @@ class YahooMailMCPServer {
             };
         }
 
-        if (count > 50) {
+        if (count > 200) {
             return {
                 content: [{
                     type: 'text',
-                    text: 'Error: count cannot exceed 50 (use search or filters for larger results)'
+                    text: 'Error: count cannot exceed 200 (use search or filters for larger results)'
                 }]
             };
         }
@@ -623,7 +661,7 @@ class YahooMailMCPServer {
             };
         }
 
-        const imap = await this.createImapConnection();
+        const imap = await this.createImapConnection(account);
 
         return new Promise((resolve, reject) => {
             imap.openBox(folder, true, (err, box) => {
@@ -744,13 +782,13 @@ class YahooMailMCPServer {
     /**
      * Read specific emails by UIDs (supports batch reading)
      */
-    async readEmail(uids, folder = 'INBOX') {
+    async readEmail(uids, folder = 'INBOX', account = 1) {
         // Support both single number and array for backward compatibility
         if (!Array.isArray(uids)) {
             uids = [uids];
         }
 
-        return this.readEmails(uids, folder);
+        return this.readEmails(uids, folder, account);
     }
 
     /**
@@ -764,7 +802,8 @@ class YahooMailMCPServer {
             sender = null,
             recipient = null,
             unreadOnly = false,
-            folder = 'INBOX'
+            folder = 'INBOX',
+            account = 1
         } = options;
 
         // Validate query parameter (allow empty for date-only searches)
@@ -787,7 +826,7 @@ class YahooMailMCPServer {
             };
         }
 
-        const imap = await this.createImapConnection();
+        const imap = await this.createImapConnection(account);
 
         return new Promise((resolve, reject) => {
             imap.openBox(folder, true, (err, box) => {
@@ -979,7 +1018,7 @@ class YahooMailMCPServer {
     /**
      * Helper method for batch email modification operations using UIDs
      */
-    async modifyEmails(uids, operation, operationName, folder = 'INBOX') {
+    async modifyEmails(uids, operation, operationName, folder = 'INBOX', account = 1) {
         // Validate input
         const validationError = this.validateUIDs(uids);
         if (validationError) {
@@ -991,7 +1030,7 @@ class YahooMailMCPServer {
             };
         }
 
-        const imap = await this.createImapConnection();
+        const imap = await this.createImapConnection(account);
 
         return new Promise((resolve, reject) => {
             imap.openBox(folder, false, (err, box) => {  // false = read-write mode
@@ -1059,7 +1098,7 @@ class YahooMailMCPServer {
     /**
      * Helper method for reading multiple emails using UIDs
      */
-    async readEmails(uids, folder = 'INBOX') {
+    async readEmails(uids, folder = 'INBOX', account = 1) {
         // Validate input
         const validationError = this.validateUIDs(uids);
         if (validationError) {
@@ -1071,7 +1110,7 @@ class YahooMailMCPServer {
             };
         }
 
-        const imap = await this.createImapConnection();
+        const imap = await this.createImapConnection(account);
 
         return new Promise((resolve, reject) => {
             imap.openBox(folder, true, (err, box) => {  // true = read-only mode
@@ -1180,84 +1219,91 @@ class YahooMailMCPServer {
     /**
      * Mark emails as read
      */
-    async markAsRead(uids, folder = 'INBOX') {
+    async markAsRead(uids, folder = 'INBOX', account = 1) {
         return this.modifyEmails(
             uids,
             (imap, source, callback) => imap.addFlags(source, '\\Seen', callback),  // NO .seq
             'marked as read',
-            folder
+            folder,
+            account
         );
     }
 
     /**
      * Mark emails as unread
      */
-    async markAsUnread(uids, folder = 'INBOX') {
+    async markAsUnread(uids, folder = 'INBOX', account = 1) {
         return this.modifyEmails(
             uids,
             (imap, source, callback) => imap.delFlags(source, '\\Seen', callback),  // NO .seq
             'marked as unread',
-            folder
+            folder,
+            account
         );
     }
 
     /**
      * Flag emails as important/starred
      */
-    async flagEmails(uids, folder = 'INBOX') {
+    async flagEmails(uids, folder = 'INBOX', account = 1) {
         return this.modifyEmails(
             uids,
             (imap, source, callback) => imap.addFlags(source, '\\Flagged', callback),  // NO .seq
             'flagged',
-            folder
+            folder,
+            account
         );
     }
 
     /**
      * Remove flag/star from emails
      */
-    async unflagEmails(uids, folder = 'INBOX') {
+    async unflagEmails(uids, folder = 'INBOX', account = 1) {
         return this.modifyEmails(
             uids,
             (imap, source, callback) => imap.delFlags(source, '\\Flagged', callback),  // NO .seq
             'unflagged',
-            folder
+            folder,
+            account
         );
     }
 
     /**
      * Delete emails (move to Trash)
      */
-    async deleteEmails(uids, folder = 'INBOX') {
+    async deleteEmails(uids, folder = 'INBOX', account = 1) {
         return this.modifyEmails(
             uids,
             (imap, source, callback) => imap.move(source, 'Trash', callback),  // NO .seq
             'moved to Trash',
-            folder
+            folder,
+            account
         );
     }
 
     /**
      * Archive emails
      */
-    async archiveEmails(uids, folder = 'INBOX') {
+    async archiveEmails(uids, folder = 'INBOX', account = 1) {
         return this.modifyEmails(
             uids,
             (imap, source, callback) => imap.move(source, 'Archive', callback),  // NO .seq
             'archived',
-            folder
+            folder,
+            account
         );
     }
 
     /**
      * Move emails to a specific folder
      */
-    async moveEmails(uids, folderName, sourceFolder = 'INBOX') {
+    async moveEmails(uids, folderName, sourceFolder = 'INBOX', account = 1) {
         return this.modifyEmails(
             uids,
             (imap, source, callback) => imap.move(source, folderName, callback),  // NO .seq
             `moved to ${folderName}`,
-            sourceFolder
+            sourceFolder,
+            account
         );
     }
 
@@ -1349,8 +1395,8 @@ class YahooMailMCPServer {
     /**
      * List all available IMAP folders
      */
-    async listFolders() {
-        const imap = await this.createImapConnection();
+    async listFolders(account = 1) {
+        const imap = await this.createImapConnection(account);
 
         return new Promise((resolve, reject) => {
             imap.getBoxes((err, boxes) => {
