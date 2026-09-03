@@ -341,6 +341,50 @@ class YahooMailMCPServer {
                         }
                     },
                     {
+                        name: 'mark_as_spam',
+                        description: 'Mark emails as spam/junk using UIDs. Sets the $Junk keyword flag and moves emails to the Bulk folder to train Yahoo\'s spam filter. UIDs are permanent identifiers.',
+                        inputSchema: {
+                            type: 'object',
+                            properties: {
+                                uids: {
+                                    type: 'array',
+                                    items: { type: 'number' },
+                                    description: 'Array of UIDs to mark as spam',
+                                    minItems: 1
+                                },
+                                folder: {
+                                    type: 'string',
+                                    description: 'Source folder containing the emails (default: INBOX)',
+                                    default: 'INBOX'
+                                },
+                                account: { type: 'number', description: 'Account number (1, 2, or 3, default: 1)', default: 1 }
+                            },
+                            required: ['uids']
+                        }
+                    },
+                    {
+                        name: 'mark_as_not_spam',
+                        description: 'Mark emails as not spam/not junk using UIDs. Sets the $NotJunk keyword flag and moves emails to the Inbox to train Yahoo\'s spam filter. UIDs are permanent identifiers.',
+                        inputSchema: {
+                            type: 'object',
+                            properties: {
+                                uids: {
+                                    type: 'array',
+                                    items: { type: 'number' },
+                                    description: 'Array of UIDs to mark as not spam',
+                                    minItems: 1
+                                },
+                                folder: {
+                                    type: 'string',
+                                    description: 'Source folder containing the emails (default: Bulk)',
+                                    default: 'Bulk'
+                                },
+                                account: { type: 'number', description: 'Account number (1, 2, or 3, default: 1)', default: 1 }
+                            },
+                            required: ['uids']
+                        }
+                    },
+                    {
                         name: 'move_emails',
                         description: 'Move emails to a specified folder using UIDs. UIDs are permanent identifiers. Use list_folders to see available folders.',
                         inputSchema: {
@@ -424,6 +468,12 @@ class YahooMailMCPServer {
 
                     case 'unflag_emails':
                         return await this.unflagEmails(args.uids, args.folder, args?.account || 1);
+
+                    case 'mark_as_spam':
+                        return await this.markAsSpam(args.uids, args.folder, args?.account || 1);
+
+                    case 'mark_as_not_spam':
+                        return await this.markAsNotSpam(args.uids, args.folder, args?.account || 1);
 
                     case 'move_emails':
                         return await this.moveEmails(args.uids, args.folderName, args.sourceFolder, args?.account || 1);
@@ -1263,6 +1313,42 @@ class YahooMailMCPServer {
             uids,
             (imap, source, callback) => imap.delFlags(source, '\\Flagged', callback),  // NO .seq
             'unflagged',
+            folder,
+            account
+        );
+    }
+
+    /**
+     * Mark emails as spam - sets $Junk flag and moves to Bulk folder (trains Yahoo spam filter)
+     */
+    async markAsSpam(uids, folder = 'INBOX', account = 1) {
+        return this.modifyEmails(
+            uids,
+            async (imap, source, callback) => {
+                imap.addKeywords(source, '$Junk', (err) => {
+                    if (err) return callback(err);
+                    imap.move(source, 'Bulk', callback);
+                });
+            },
+            'marked as spam and moved to Bulk',
+            folder,
+            account
+        );
+    }
+
+    /**
+     * Mark emails as not spam - sets $NotJunk flag and moves to Inbox (trains Yahoo spam filter)
+     */
+    async markAsNotSpam(uids, folder = 'Bulk', account = 1) {
+        return this.modifyEmails(
+            uids,
+            async (imap, source, callback) => {
+                imap.addKeywords(source, '$NotJunk', (err) => {
+                    if (err) return callback(err);
+                    imap.move(source, 'INBOX', callback);
+                });
+            },
+            'marked as not spam and moved to Inbox',
             folder,
             account
         );
