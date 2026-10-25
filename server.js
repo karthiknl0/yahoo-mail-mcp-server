@@ -17,9 +17,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import mammoth from 'mammoth';
 import * as XLSX from 'xlsx';
-import { createRequire } from 'module';
-const _require = createRequire(import.meta.url);
-const pdfParse = _require('pdf-parse');
+import { PDFParse } from 'pdf-parse';
 
 // Load environment variables from .env file (for local development)
 dotenv.config({ quiet: true });
@@ -1598,8 +1596,19 @@ class YahooMailMCPServer {
                                 if (ct.startsWith('text/')) {
                                     textContent = buf.toString('utf-8').slice(0, MAX_CHARS);
                                 } else if (ct === 'application/pdf' || filename.toLowerCase().endsWith('.pdf')) {
-                                    const data = await pdfParse(buf);
-                                    textContent = data.text.slice(0, MAX_CHARS);
+                                    if (buf.length < 5 || buf.subarray(0, 5).toString('ascii') !== '%PDF-') {
+                                        throw new Error('Invalid PDF signature; attachment may be corrupt or mislabeled');
+                                    }
+                                    const parser = new PDFParse({ data: new Uint8Array(buf) });
+                                    try {
+                                        const data = await parser.getText();
+                                        textContent = (data.text || '').slice(0, MAX_CHARS);
+                                        if (!textContent.trim()) {
+                                            extractionNote = 'PDF parsed but contains no extractable text; may be image-only and require OCR.';
+                                        }
+                                    } finally {
+                                        await parser.destroy();
+                                    }
                                 } else if (
                                     ct === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
                                     filename.toLowerCase().endsWith('.docx')
